@@ -28,13 +28,7 @@ class SysTrayIcon(object):
 
     FIRST_ID = 1023
 
-    def __init__(self,
-                 icon,
-                 hover_text,
-                 menu_options,
-                 on_quit=None,
-                 default_menu_index=None,
-                 window_class_name=None, ):
+    def __init__(self, icon, hover_text, menu_options, on_quit=None, default_menu_index=None, window_class_name=None, ):
 
         self.icon = icon
         self.hover_text = hover_text
@@ -50,10 +44,7 @@ class SysTrayIcon(object):
         self.default_menu_index = (default_menu_index or 0)
         self.window_class_name = window_class_name or "SysTrayIconPy"
 
-        message_map = {win32gui.RegisterWindowMessage("TaskbarCreated"): self.restart,
-                       win32con.WM_DESTROY: self.destroy,
-                       win32con.WM_COMMAND: self.command,
-                       win32con.WM_USER + 20: self.notify, }
+        message_map = {win32gui.RegisterWindowMessage("TaskbarCreated"): self.restart, win32con.WM_DESTROY: self.destroy, win32con.WM_COMMAND: self.command, win32con.WM_USER + 20: self.notify, }
         # Register the Window class.
         window_class = win32gui.WNDCLASS()
         hinst = window_class.hInstance = win32gui.GetModuleHandle(None)
@@ -65,17 +56,7 @@ class SysTrayIcon(object):
         classAtom = win32gui.RegisterClass(window_class)
         # Create the Window.
         style = win32con.WS_OVERLAPPED | win32con.WS_SYSMENU
-        self.hwnd = win32gui.CreateWindow(classAtom,
-                                          self.window_class_name,
-                                          style,
-                                          0,
-                                          0,
-                                          win32con.CW_USEDEFAULT,
-                                          win32con.CW_USEDEFAULT,
-                                          0,
-                                          0,
-                                          hinst,
-                                          None)
+        self.hwnd = win32gui.CreateWindow(classAtom, self.window_class_name, style, 0, 0, win32con.CW_USEDEFAULT, win32con.CW_USEDEFAULT, 0, 0, hinst, None)
         win32gui.UpdateWindow(self.hwnd)
         self.notify_id = None
         self.refresh_icon()
@@ -90,10 +71,7 @@ class SysTrayIcon(object):
                 self.menu_actions_by_id.add((self._next_action_id, option_action))
                 result.append(menu_option + (self._next_action_id,))
             elif non_string_iterable(option_action):
-                result.append((option_text,
-                               option_icon,
-                               self._add_ids_to_menu_options(option_action),
-                               self._next_action_id))
+                result.append((option_text, option_icon, self._add_ids_to_menu_options(option_action), self._next_action_id))
             else:
                 print('Unknown item', option_text, option_icon, option_action)
             self._next_action_id += 1
@@ -104,12 +82,7 @@ class SysTrayIcon(object):
         hinst = win32gui.GetModuleHandle(None)
         if os.path.isfile(self.icon):
             icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
-            hicon = win32gui.LoadImage(hinst,
-                                       self.icon,
-                                       win32con.IMAGE_ICON,
-                                       0,
-                                       0,
-                                       icon_flags)
+            hicon = win32gui.LoadImage(hinst, self.icon, win32con.IMAGE_ICON, 0, 0, icon_flags)
         else:
             print("Can't find icon file - using default.")
             hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
@@ -118,12 +91,7 @@ class SysTrayIcon(object):
             message = win32gui.NIM_MODIFY
         else:
             message = win32gui.NIM_ADD
-        self.notify_id = (self.hwnd,
-                          0,
-                          win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP,
-                          win32con.WM_USER + 20,
-                          hicon,
-                          self.hover_text)
+        self.notify_id = (self.hwnd, 0, win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP, win32con.WM_USER + 20, hicon, self.hover_text)
         win32gui.Shell_NotifyIcon(message, self.notify_id)
 
     def restart(self, hwnd, msg, wparam, lparam):
@@ -152,13 +120,7 @@ class SysTrayIcon(object):
         pos = win32gui.GetCursorPos()
         # See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/winui/menus_0hdi.asp
         win32gui.SetForegroundWindow(self.hwnd)
-        win32gui.TrackPopupMenu(menu,
-                                win32con.TPM_LEFTALIGN,
-                                pos[0],
-                                pos[1],
-                                0,
-                                self.hwnd,
-                                None)
+        win32gui.TrackPopupMenu(menu, win32con.TPM_LEFTALIGN, pos[0], pos[1], 0, self.hwnd, None)
         win32gui.PostMessage(self.hwnd, win32con.WM_NULL, 0, 0)
 
     def create_menu(self, menu, menu_options):
@@ -167,16 +129,12 @@ class SysTrayIcon(object):
                 option_icon = self.prep_menu_icon(option_icon)
 
             if option_id in self.menu_actions_by_id:
-                item, extras = win32gui_struct.PackMENUITEMINFO(text=option_text,
-                                                                hbmpItem=option_icon,
-                                                                wID=option_id)
+                item, extras = win32gui_struct.PackMENUITEMINFO(text=option_text, hbmpItem=option_icon, wID=option_id)
                 win32gui.InsertMenuItem(menu, 0, 1, item)
             else:
                 submenu = win32gui.CreatePopupMenu()
                 self.create_menu(submenu, option_action)
-                item, extras = win32gui_struct.PackMENUITEMINFO(text=option_text,
-                                                                hbmpItem=option_icon,
-                                                                hSubMenu=submenu)
+                item, extras = win32gui_struct.PackMENUITEMINFO(text=option_text, hbmpItem=option_icon, hSubMenu=submenu)
                 win32gui.InsertMenuItem(menu, 0, 1, item)
 
     def prep_menu_icon(self, icon):
@@ -232,10 +190,12 @@ if __name__ == '__main__':
     hover_text = "SysTrayIcon.py Demo"
 
 
-    def hello(sysTrayIcon): print("Hello World.")
+    def hello(sysTrayIcon):
+        print("Hello World.")
 
 
-    def simon(sysTrayIcon): print("Hello Simon.")
+    def simon(sysTrayIcon):
+        print("Hello Simon.")
 
 
     def switch_icon(sysTrayIcon):
@@ -245,13 +205,11 @@ if __name__ == '__main__':
 
     menu_options = (('Say Hello', next(icons), hello),
                     ('Switch Icon', None, switch_icon),
-                    ('A sub-menu', next(icons), (('Say Hello to Simon', next(icons), simon),
-                                                 ('Switch Icon', next(icons), switch_icon),
-                                                 ))
-                    )
+                    ('A sub-menu', next(icons), (('Say Hello to Simon', next(icons), simon), ('Switch Icon', next(icons), switch_icon),)))
 
 
-    def bye(sysTrayIcon): print('Bye, then.')
+    def bye(sysTrayIcon):
+        print('Bye, then.')
 
 
     SysTrayIcon(next(icons), hover_text, menu_options, on_quit=bye, default_menu_index=1)
