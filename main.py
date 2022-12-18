@@ -2,24 +2,21 @@
 # Module     : SysTrayIcon.py
 # Synopsis   : Windows System tray icon.
 # Programmer : Simon Brunning - simon@brunningonline.net - modified for Python 3
-# Date       : 13 February 2018
+#              Matthias K. Scharrer - matthias.scharrer@gmail.com
+# Date       : 17 December 2022 (11 April 2005, 13 February 2018)
 # Notes      : Based on (i.e. ripped off from) Mark Hammond's
 #              win32gui_taskbar.py and win32gui_menu.py demos from PyWin32
-'''TODO
-
-For now, the demo at the bottom shows how to use it...'''
 
 import os
 import sys
-import win32api  # package pywin32
+import win32api
 import win32con
 import win32gui_struct
-
 try:
     import winxpgui as win32gui
 except ImportError:
     import win32gui
-
+import win32ui
 
 class SysTrayIcon(object):
     '''TODO'''
@@ -33,8 +30,8 @@ class SysTrayIcon(object):
         self.icon = icon
         self.hover_text = hover_text
         self.on_quit = on_quit
-
-        menu_options = menu_options + (('Quit', None, self.QUIT),)
+        
+        menu_options = menu_options + (('Quit', 'myIcon_QUIT.ico', self.QUIT),)
         self._next_action_id = self.FIRST_ID
         self.menu_actions_by_id = set()
         self.menu_options = self._add_ids_to_menu_options(list(menu_options))
@@ -49,7 +46,7 @@ class SysTrayIcon(object):
         window_class = win32gui.WNDCLASS()
         hinst = window_class.hInstance = win32gui.GetModuleHandle(None)
         window_class.lpszClassName = self.window_class_name
-        window_class.style = win32con.CS_VREDRAW | win32con.CS_HREDRAW;
+        window_class.style = win32con.CS_VREDRAW | win32con.CS_HREDRAW
         window_class.hCursor = win32gui.LoadCursor(0, win32con.IDC_ARROW)
         window_class.hbrBackground = win32con.COLOR_WINDOW
         window_class.lpfnWndProc = message_map  # could also specify a wndproc.
@@ -129,48 +126,51 @@ class SysTrayIcon(object):
                 option_icon = self.prep_menu_icon(option_icon)
 
             if option_id in self.menu_actions_by_id:
-                item, extras = win32gui_struct.PackMENUITEMINFO(text=option_text, hbmpItem=option_icon, wID=option_id)
+                item, _extras = win32gui_struct.PackMENUITEMINFO(text=option_text, hbmpItem=option_icon, wID=option_id)
                 win32gui.InsertMenuItem(menu, 0, 1, item)
             else:
                 submenu = win32gui.CreatePopupMenu()
                 self.create_menu(submenu, option_action)
-                item, extras = win32gui_struct.PackMENUITEMINFO(text=option_text, hbmpItem=option_icon, hSubMenu=submenu)
+                item, _extras = win32gui_struct.PackMENUITEMINFO(text=option_text, hbmpItem=option_icon, hSubMenu=submenu)
                 win32gui.InsertMenuItem(menu, 0, 1, item)
 
     def prep_menu_icon(self, icon):
-        # First load the icon.
+        """Load icons into the tray items.
+        
+        Got from https://stackoverflow.com/a/45890829.
+        """
         ico_x = win32api.GetSystemMetrics(win32con.SM_CXSMICON)
         ico_y = win32api.GetSystemMetrics(win32con.SM_CYSMICON)
-        hicon = win32gui.LoadImage(0, icon, win32con.IMAGE_ICON, ico_x, ico_y, win32con.LR_LOADFROMFILE)
+        hIcon = win32gui.LoadImage(0, icon, win32con.IMAGE_ICON, ico_x, ico_y, win32con.LR_LOADFROMFILE)
 
-        hdcBitmap = win32gui.CreateCompatibleDC(0)
-        hdcScreen = win32gui.GetDC(0)
-        hbm = win32gui.CreateCompatibleBitmap(hdcScreen, ico_x, ico_y)
-        hbmOld = win32gui.SelectObject(hdcBitmap, hbm)
-        # Fill the background.
+        hwndDC = win32gui.GetWindowDC(self.hwnd)
+        dc = win32ui.CreateDCFromHandle(hwndDC)
+        memDC = dc.CreateCompatibleDC()
+        iconBitmap = win32ui.CreateBitmap()
+        iconBitmap.CreateCompatibleBitmap(dc, ico_x, ico_y)
+        oldBmp = memDC.SelectObject(iconBitmap)
         brush = win32gui.GetSysColorBrush(win32con.COLOR_MENU)
-        win32gui.FillRect(hdcBitmap, (0, 0, 16, 16), brush)
-        # unclear if brush needs to be feed.  Best clue I can find is:
-        # "GetSysColorBrush returns a cached brush instead of allocating a new
-        # one." - implies no DeleteObject
-        # draw the icon
-        win32gui.DrawIconEx(hdcBitmap, 0, 0, hicon, ico_x, ico_y, 0, 0, win32con.DI_NORMAL)
-        win32gui.SelectObject(hdcBitmap, hbmOld)
-        win32gui.DeleteDC(hdcBitmap)
 
-        return hbm
+        win32gui.FillRect(memDC.GetSafeHdc(), (0, 0, ico_x, ico_y), brush)
+        win32gui.DrawIconEx(memDC.GetSafeHdc(), 0, 0, hIcon, ico_x, ico_y, 0, 0, win32con.DI_NORMAL)
+
+        memDC.SelectObject(oldBmp)
+        memDC.DeleteDC()
+        win32gui.ReleaseDC(self.hwnd, hwndDC)
+
+        return iconBitmap.GetHandle() 
 
     def command(self, hwnd, msg, wparam, lparam):
         id = win32gui.LOWORD(wparam)
         self.execute_menu_option(id)
-
+        return 0
+        
     def execute_menu_option(self, id):
         menu_action = self.menu_actions_by_id[id]
         if menu_action == self.QUIT:
             win32gui.DestroyWindow(self.hwnd)
         else:
             menu_action(self)
-
 
 def non_string_iterable(obj):
     try:
@@ -180,36 +180,88 @@ def non_string_iterable(obj):
     else:
         return not isinstance(obj, str)
 
-
-# Minimal self test. You'll need a bunch of ICO files in the current working
-# directory in order for this to work...
 if __name__ == '__main__':
-    import itertools, glob
+    outputfile = r".\prjtrx_events.log"
+    import itertools, glob, json, os, datetime
+    from functools import partial
 
-    icons = itertools.cycle(glob.glob('*.ico'))
-    hover_text = "SysTrayIcon.py Demo"
+    if os.path.exists('projects.json'):
+        with open('projects.json','r') as f:
+            projects = json.load(f)
+    else:
+        projects = {'Meta': ['StartUp', 'Break', 'DoSomething']}
+        with open('projects.json','w') as f:
+            json.dump(projects, f)
 
+    icons = glob.glob('*.ico')
+    fallback_icon = 'myIcon_Meta.ico'
+    hover_text = "No Project selected!"
 
-    def hello(sysTrayIcon):
-        print("Hello World.")
-
-
-    def simon(sysTrayIcon):
-        print("Hello Simon.")
-
-
-    def switch_icon(sysTrayIcon):
-        sysTrayIcon.icon = next(icons)
+    def switchProjectCB(sysTrayIcon, newPrj, newWP, newicon = fallback_icon):
+        menow = datetime.datetime.now()
+        infotxt = '{} - changed <{}>:<{}>\n'.format(menow.strftime('%Y%m%d %H%M%S'), newPrj, newWP)
+        with open(outputfile,'at') as f:
+            f.write(infotxt)
+        sysTrayIcon.hover_text = infotxt
+        if newicon in icons:
+            sysTrayIcon.icon = newicon
+        else:
+            sysTrayIcon.icon = fallback_icon
         sysTrayIcon.refresh_icon()
 
+    menu_options = []
+    for prj in projects.keys():
+        my_option = prj.split("-")[-1]
+        my_option_infotxt = prj.split("-")[0]
+        prjIcon = "myIcon_"+my_option+".ico"
+        if prjIcon not in icons:
+            prjIcon = None
+        if len(projects[prj])>1:
+            sub_options = []
+            for wp in projects[prj]:
+                my_sub_option = wp.split("-")[-1]
+                my_sub_option_infotxt = wp.split("-")[0]
+                subPrjIcon = "myIcon_"+my_sub_option+".ico"
+                if subPrjIcon not in icons:
+                    subPrjIcon = prjIcon
+                my_sub_option_fun = partial(switchProjectCB, newPrj=my_option_infotxt, newWP=my_sub_option_infotxt, newicon=subPrjIcon)
+                sub_options += [(my_sub_option, subPrjIcon, my_sub_option_fun,)]
+            sub_options = tuple(sub_options)
+        elif len(projects[prj])==1:
+            my_sub_option = projects[prj][0].split("-")[-1]
+            my_sub_option_infotxt = projects[prj][0].split("-")[0]
+            if prjIcon is None:
+                prjIcon = "myIcon_"+my_sub_option+".ico"
+                if prjIcon not in icons:
+                    prjIcon = None
+            my_sub_option_fun = partial(switchProjectCB, newPrj=my_option_infotxt, newWP=my_sub_option_infotxt, newicon=prjIcon)
+            sub_options = my_sub_option_fun
+        else:
+            sub_options = partial(switchProjectCB, newPrj=my_option_infotxt, newWP='Default', newicon=prjIcon)
+        menu_options += [(my_option, prjIcon, sub_options,)]
+    menu_options = tuple(menu_options)
 
-    menu_options = (('Say Hello', next(icons), hello),
-                    ('Switch Icon', None, switch_icon),
-                    ('A sub-menu', next(icons), (('Say Hello to Simon', next(icons), simon), ('Switch Icon', next(icons), switch_icon),)))
+    bye = partial(switchProjectCB, newPrj='None', newWP='')
 
+    def _find_default_menu_option(menu_options, startIndex):
+        for menu_option in menu_options:
+            option_text, option_icon, option_action = menu_option
+            if (option_text == 'StartUp'):
+                return startIndex, startIndex
+            if callable(option_action):
+                pass
+            elif non_string_iterable(option_action):
+                temp_index, startIndex = _find_default_menu_option(option_action, startIndex)
+                if temp_index is not None:
+                    return temp_index, temp_index
+            else:
+                print('Unknown item', option_text, option_icon, option_action)
+            startIndex += 1
+        return None
+    default_menu_index, _dummy = _find_default_menu_option(menu_options, SysTrayIcon.FIRST_ID)
 
     def bye(sysTrayIcon):
         print('Bye, then.')
 
 
-    SysTrayIcon(next(icons), hover_text, menu_options, on_quit=bye, default_menu_index=1)
+    SysTrayIcon(fallback_icon, hover_text, menu_options, on_quit=bye, default_menu_index=1)

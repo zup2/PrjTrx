@@ -1,0 +1,5 @@
+{"Meta": ["StartUp", "Emails", "Tasks", "Coffee"],
+"SimpleProject": [""],
+"ComplicatedProject": ["MGMT", "Programming", "Integration", "Demonstration"],
+"A123-AliasProject": ["WP1-MGMT", "WP2-Programming", "WP3-Integration", "WP4-Demonstration"]
+}
